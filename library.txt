@@ -1,0 +1,27 @@
+pip install reportlab
+pip install streamlit
+pip install openpyxl
+pip install pyinstaller
+
+https://www.youtube.com/watch?v=3wZ7GRbr91g
+
+pyinstaller --onefile ваш_скрипт.py
+(pip install auto-py-to-exe)
+
+
+Reportlab package:
+pillow, chardet, reportlab
+
+
+Streamlit package:
+pytz, zipp, watchdog, validators, urllib3, tzdata, typing-extensions, tornado, toolz, toml, tenacity, smmap, six, rpds-py, pygments, protobuf, packaging, numpy,
+mdurl, MarkupSafe, idna, colorama, charset-normalizer, certifi, cachetools, blinker, attrs, tzlocal, requests, referencing, python-dateutil, pyarrow, markdown-it-py,
+jinja2, importlib-metadata, gitdb, click, rich, pydeck, pandas, jsonschema-specifications, gitpython, jsonschema, altair, streamlit
+
+
+Openpyxl package:
+et-xmlfile, openpyxl
+
+
+Pyinstaller package:
+altgraph, setuptools, pywin32-ctypes, pefile, pyinstaller-hooks-contrib, pyinstaller
