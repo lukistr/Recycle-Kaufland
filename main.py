@@ -43,11 +43,25 @@ st.markdown("""
         .st-emotion-cache-10trblm {
             text-align: center;
         }
-        .element-container, .st-emotion-cache-1vzq8hd, .e1f1d6gn4 {
+        .element-container, .st-emotion-cache-1vzq8hd, .st-emotion-cache-11on9qe, .e1f1d6gn4 {
             text-align: center;
+            display: block;
         }
         .st-emotion-cache-keje6w, .e1f1d6gn3{
             padding: 0 8% 0 8%;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .inline {
+            width: 48%;
+        }
+        .stSelectbox {
+            text-align: center;
+            max-width: 30%;
+            width: 30%;
+            display: inline-block;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -172,12 +186,7 @@ def create_pdf_bg(reg_number, pdf_file_path, exit_date_truck, exit_time_truck):
 
     print_pdf_doc(pdf_file)
 
-def web_page_create():
-    # Заглавие на приложението
-    # st.title('Рециклиране')
-    # st.markdown('<p class="header-text">Документи за рециклиран отпадък</p>', unsafe_allow_html=True)
-    # st.write('Изпиши текст)
-
+def security_page_create():
     with st.form(key='dual_column_form', clear_on_submit=True):
         # Използваме стилове, за да подредим полетата в две колони
         col1, col2 = st.columns(2)
@@ -272,6 +281,74 @@ def check_create_file(x_file_path):
     wb.save(x_file_path)
     print(f"Създаден е нов Excel файл: {x_file_path}")
 
+def select_page():
+    option = st.selectbox(
+        label='Изберете страница',
+        options=('Охрана', 'ЕДВ')
+    )
+    if option == 'Охрана':
+        security_page_create()
+    elif option == 'ЕДВ':
+        edv_page_create()
+        # login_form()
+    else:
+        security_page_create()
+
+def edv_page_create():
+    st.markdown('<p class="big-font">Камиони с вход за дата</p>', unsafe_allow_html=True)
+    search_date = st.date_input('Въведете дата', value=datetime.now(), format='DD.MM.YYYY')
+    formatted_date = search_date.strftime('%d.%m.%Y')
+    current_data = pd.read_excel('truck_data.xlsx')
+    current_data['Дата на вход'] = pd.to_datetime(current_data['Дата на вход'])
+    filtered_data = current_data[current_data['Дата на вход'] == formatted_date]
+    st.write(filtered_data)
+
+    # Зареждане на екселския файл
+    df = pd.read_excel(excel_file_path)
+
+    # Добавяне на избор на редове чрез текстово поле
+    selected_row = st.text_input("Изберете ред по индекс:", 0)
+
+    # Преобразуване на индекса в цяло число
+    selected_row = int(selected_row)
+
+    # Изобразяване на данните за избрания ред
+    st.write("Избран ред:", df.iloc[selected_row])
+
+    # Добавяне на бутон за промяна на статуса
+    if st.button("Промени статус"):
+        # Променете статуса на избрания ред
+        df.at[selected_row, 'Статус'] = "In"
+
+        # Запазете промените в екселския файл
+        df.to_excel(excel_file_path, index=False)
+
+def login_form():
+    st.markdown("""
+        <style>
+            .st-emotion-cache-ehohv7, .e11y4ecf0, .st-emotion-cache-7ym5gk, .ef3psqc12 {
+                display: block;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    username = st.text_input('Потребителско име', value="")
+    password = st.text_input('Парола', type="password", value="")
+
+    if st.button('Вход'):
+        if username == "EDV" and password == "Kaufland2021":
+            st.markdown("""
+                <style>
+                    .st-emotion-cache-ehohv7, .e11y4ecf0, .st-emotion-cache-7ym5gk, .ef3psqc12 {
+                        display: none;
+                    }
+                </style>
+            """, unsafe_allow_html=True)
+
+            edv_page_create()
+
+        else:
+            st.error("Грешно потребителско име или парола")
+
 if __name__ == "__main__":
     current_dir = os.getcwd()
     dir_name = 'documents'
@@ -283,5 +360,6 @@ if __name__ == "__main__":
     excel_file_path = "truck_data.xlsx"
     if not os.path.exists(excel_file_path):
         check_create_file(excel_file_path)
+        print(f'Файлът {excel_file_path} беше успешно създаден.')
 
-    web_page_create()
+    select_page()
