@@ -12,6 +12,15 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 import os
 import subprocess
 from datetime import datetime
+import warnings
+from colorama import Fore
+import streamlit_option_menu
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
+
+warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
+warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
 
 st.markdown("""
     <style>
@@ -43,7 +52,7 @@ st.markdown("""
         .st-emotion-cache-10trblm {
             text-align: center;
         }
-        .element-container, .st-emotion-cache-1vzq8hd, .st-emotion-cache-11on9qe, .e1f1d6gn4 {
+        .element-container, .st-emotion-cache-1vzq8hd, .st-emotion-cache-11on9qe {
             text-align: center;
             display: block;
         }
@@ -63,8 +72,24 @@ st.markdown("""
             width: 30%;
             display: inline-block;
         }
+        .st-emotion-cache-kskxxl{
+            max-width: 250px;
+        }
+        .e1f1d6gn4 {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .stDateInput, .stNumberInput {
+            max-width: 250px;
+        }
     </style>
 """, unsafe_allow_html=True)
+
+def write_logs(message_logs):
+    with open('logs/output.txt', 'a') as file:
+        file.write(f'{message_logs}\n')
 
 def create_pdf_bg(reg_number, pdf_file_path, exit_date_truck, exit_time_truck):
     df = pd.read_excel('truck_data.xlsx')
@@ -78,7 +103,7 @@ def create_pdf_bg(reg_number, pdf_file_path, exit_date_truck, exit_time_truck):
     exit_weight = filtered_row['Тегло на изход'].values[0]
     exit_date = filtered_row['Дата на изход'].values[0]
     exit_time = filtered_row['Време на изход'].values[0]
-    pdf_file = 'documents/' + str(company) + ' ' + str(exit_date_truck) + ' ' + str(exit_time_truck) + '.pdf'
+    pdf_file = 'documents/' + company + ' ' + exit_date_truck + ' ' + exit_time_truck + '.pdf'
 
     pdfmetrics.registerFont(TTFont('Roboto', 'fonts/Roboto-Regular.ttf'))
     pdfmetrics.registerFont(TTFont('Roboto_bold', 'fonts/Roboto-Bold.ttf'))
@@ -160,7 +185,7 @@ def create_pdf_bg(reg_number, pdf_file_path, exit_date_truck, exit_time_truck):
     c.drawString(70, height - (height / 4) - 30, text)
     text = str(company).upper() + ' за рециклиране:'
     c.drawString(70, height - (height / 4) - 55, text)
-    text = '.............................................................. - .................... бр. с тегло ' + ' кг.'
+    text = '.............................................................. - .................... бр. с тегло ' + str((int(exit_weight) - int(entry_weight))) + ' кг.'
     c.drawString(70, height - (height / 4) - 85, text)
     text = 'Приел: .......................................................'
     c.drawString(width - 270, height - (height / 2), text)
@@ -214,7 +239,8 @@ def security_page_create():
                     'Време на вход': [current_time],
                     'Дата на изход': [''],
                     'Време на изход': [''],
-                    'Принт': ['']
+                    'Принт': [''],
+                    'Име на файла': ['']
                 })
 
                 df = pd.concat([df, new_entry], ignore_index=False)
@@ -222,28 +248,43 @@ def security_page_create():
 
                 st.success('Входните данни са потвърдени успешно!')
 
+                message_log_entry = f'{datetime.now()}: Камион с регистрационен номер {registration_number} влиза в Централен склад.'
+                print(Fore.YELLOW + message_log_entry + Fore.RESET)
+                write_logs(message_log_entry)
+
         # Втора колона
         with col2:
-            st.markdown('<p class="normal-font">Изход</p>', unsafe_allow_html=True)
-            exit_registration_number = st.text_input('Регистрационен номер за изход:', value="", key='exit_registration_number')
-            exit_weight = st.text_input('Изходно тегло:', value="", key='exit_weight')
-            submit_exit = st.form_submit_button(label='Потвърди изход')
-            if submit_exit:
-                current_date = datetime.now().strftime('%d.%m.%Y')
-                current_time = datetime.now().strftime('%H:%M:%S')
-                exit_date = datetime.now().strftime('%Y_%m_%d')
-                exit_time = datetime.now().strftime('%H_%M_%S')
-                excel_path = 'truck_data.xlsx'
-                df = pd.read_excel(excel_path)
-                last_entry_index = df[(df['Регистрационен номер'] == exit_registration_number) & (df['Статус'] == 'In')].index[-1]
-                df.at[last_entry_index, 'Тегло на изход'] = int(exit_weight)
-                df.at[last_entry_index, 'Статус'] = 'Out'
-                df.at[last_entry_index, 'Дата на изход'] = str(current_date)
-                df.at[last_entry_index, 'Време на изход'] = str(current_time)
-                df.to_excel(excel_path, index=False, engine='openpyxl')
-                st.success('Успешен изход!')
+            try:
+                st.markdown('<p class="normal-font">Изход</p>', unsafe_allow_html=True)
+                exit_registration_number = st.text_input('Регистрационен номер за изход:', value="", key='exit_registration_number')
+                exit_weight = st.text_input('Изходно тегло:', value="", key='exit_weight')
+                submit_exit = st.form_submit_button(label='Потвърди изход')
+                if submit_exit:
+                    current_date = datetime.now().strftime('%d.%m.%Y')
+                    current_time = datetime.now().strftime('%H:%M:%S')
+                    exit_date = datetime.now().strftime('%Y_%m_%d')
+                    exit_time = datetime.now().strftime('%H_%M_%S')
+                    excel_path = 'truck_data.xlsx'
+                    df = pd.read_excel(excel_path)
+                    last_entry_index = df[(df['Регистрационен номер'] == exit_registration_number) & (df['Статус'] == 'In')].index[-1]
+                    df.at[last_entry_index, 'Тегло на изход'] = int(exit_weight)
+                    df.at[last_entry_index, 'Статус'] = 'Out'
+                    df.at[last_entry_index, 'Дата на изход'] = str(current_date)
+                    df.at[last_entry_index, 'Време на изход'] = str(current_time)
+                    filtered_row = df.loc[(df['Регистрационен номер'] == exit_registration_number)]
+                    company = filtered_row['Фирма за рециклиране'].values[0]
+                    df.at[last_entry_index, 'Име на файла'] = company + ' ' + exit_date + ' ' + exit_time + '.pdf'
+                    df.to_excel(excel_path, index=False, engine='openpyxl')
+                    st.success('Успешен изход!')
 
-                create_pdf_bg(exit_registration_number, excel_path, exit_date, exit_time)
+                    message_log_leave = f'{datetime.now()}: Камион с регистрационен номер {exit_registration_number} напуска Централен склад.'
+                    print(Fore.GREEN + message_log_leave + Fore.RESET)
+                    write_logs(message_log_leave)
+
+                    create_pdf_bg(exit_registration_number, excel_path, exit_date, exit_time)
+                    security_page_create()
+            except Exception as e:
+                print(f'Игнорирана грешка {e}')
 
     # Показване на текущите данни в Excel файл
     st.markdown('<p class="big-font">Камиони с вход</p>', unsafe_allow_html=True)
@@ -256,7 +297,9 @@ def print_pdf_doc(pdf_name):
         # Отваряме PDF файла със стандартната програма за преглед на PDF
         subprocess.Popen([pdf_name], shell=True)
     except Exception as e:
-        print(f"Грешка при отваряне на файла: {e}")
+        message_log_error = Fore.RED + f"{datetime.now()}: Грешка при отваряне на файла: {e}" + Fore.RESET
+        print(message_log_error)
+        write_logs(message_log_error)
 
 def check_create_file(x_file_path):
     headers = [
@@ -268,7 +311,8 @@ def check_create_file(x_file_path):
         'Време на вход',
         'Дата на изход',
         'Време на изход',
-        'Принт'
+        'Принт',
+        'Име на файла'
     ]
 
     wb = Workbook()
@@ -279,87 +323,106 @@ def check_create_file(x_file_path):
 
     # Запазваме промените
     wb.save(x_file_path)
-    print(f"Създаден е нов Excel файл: {x_file_path}")
 
 def select_page():
-    option = st.selectbox(
-        label='Изберете страница',
-        options=('Охрана', 'ЕДВ')
+    selected = streamlit_option_menu.option_menu(
+        menu_title=None,
+        options=['Охрана', 'ЕДВ'],
+        icons=['truck', 'wrench-adjustable'],
+        menu_icon='cast',
+        default_index=0,
+        orientation='horizontal',
     )
-    if option == 'Охрана':
+
+    if selected == 'Охрана':
         security_page_create()
-    elif option == 'ЕДВ':
-        edv_page_create()
-        # login_form()
+    elif selected == 'ЕДВ':
+        login_form()
     else:
         security_page_create()
 
 def edv_page_create():
     st.markdown('<p class="big-font">Камиони с вход за дата</p>', unsafe_allow_html=True)
-    search_date = st.date_input('Въведете дата', value=datetime.now(), format='DD.MM.YYYY')
+    search_date = st.date_input('Въведете дата', value=datetime.now(), format='DD.MM.YYYY', key='edv-search-date')
     formatted_date = search_date.strftime('%d.%m.%Y')
     current_data = pd.read_excel('truck_data.xlsx')
-    current_data['Дата на вход'] = pd.to_datetime(current_data['Дата на вход'])
     filtered_data = current_data[current_data['Дата на вход'] == formatted_date]
     st.write(filtered_data)
 
     # Зареждане на екселския файл
     df = pd.read_excel(excel_file_path)
 
-    # Добавяне на избор на редове чрез текстово поле
-    selected_row = st.text_input("Изберете ред по индекс:", 0)
-
-    # Преобразуване на индекса в цяло число
-    selected_row = int(selected_row)
-
     # Изобразяване на данните за избрания ред
-    st.write("Избран ред:", df.iloc[selected_row])
+    if len(df) > 0:
+        # Добавяне на избор на редове чрез текстово поле
+        selected_row = st.number_input("Изберете ред по индекс от файла:", min_value=0, value=0, step=1)
+        selected_row = int(selected_row)
+        try:
+            st.write("Избран ред:", df.iloc[selected_row][['Регистрационен номер', 'Статус', 'Принт', 'Име на файла']])
 
-    # Добавяне на бутон за промяна на статуса
-    if st.button("Промени статус"):
-        # Променете статуса на избрания ред
-        df.at[selected_row, 'Статус'] = "In"
+            # Добавяне на бутон за промяна на статуса
+            if st.button("Промени статус"):
+                if df.at[selected_row, 'Статус'] == "Out":
+                    # Променете статуса на избрания ред
+                    df.at[selected_row, 'Статус'] = "In"
+                    df.at[selected_row, 'Принт'] = ""
+                    st.write('Статуса е променен успешно.')
+                else:
+                    st.write('Камиона все още не е напуснал склада.')
 
-        # Запазете промените в екселския файл
-        df.to_excel(excel_file_path, index=False)
+                # Запазете промените в екселския файл
+                df.to_excel(excel_file_path, index=False)
+            elif st.button("Принтирай"):
+                print_doc = 'documents/' + df.loc[selected_row, 'Име на файла']
+                print_pdf_doc(print_doc)
+        except IndexError:
+            st.write('Избрания ред е празен!')
+    else:
+        st.write('Екселския файл е празен!')
 
 def login_form():
-    st.markdown("""
-        <style>
-            .st-emotion-cache-ehohv7, .e11y4ecf0, .st-emotion-cache-7ym5gk, .ef3psqc12 {
-                display: block;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    username = st.text_input('Потребителско име', value="")
-    password = st.text_input('Парола', type="password", value="")
-
-    if st.button('Вход'):
-        if username == "EDV" and password == "Kaufland2021":
-            st.markdown("""
-                <style>
-                    .st-emotion-cache-ehohv7, .e11y4ecf0, .st-emotion-cache-7ym5gk, .ef3psqc12 {
-                        display: none;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-
-            edv_page_create()
-
-        else:
-            st.error("Грешно потребителско име или парола")
+    with open('./config.yaml') as file:
+        config = yaml.load(file, Loader=SafeLoader)
+    authenticator = stauth.Authenticate(
+        config['credentials'],
+        config['cookie']['name'],
+        config['cookie']['key'],
+        config['cookie']['expiry_days'],
+        config['preauthorized']
+    )
+    name, authentication_status, username = authenticator.login(location='main')
+    if authentication_status:
+        edv_page_create()
+        authenticator.logout('Изход', 'main')
+    elif not authentication_status:
+        st.error('Грешно потребителско име или парола!')
+    elif authentication_status is None:
+        st.warning('Въведете потребителско име и парола!')
 
 if __name__ == "__main__":
     current_dir = os.getcwd()
+
+    log_dir = 'logs'
+    target_log_dir = os.path.join(current_dir, log_dir)
+    if not os.path.exists(target_log_dir):
+        os.makedirs(target_log_dir)
+        message_log = Fore.RESET + f'{datetime.now()}: Папката ' + Fore.LIGHTGREEN_EX + f'{log_dir}' + Fore.RESET + ' беше успешно създадена.'
+        print(Fore.LIGHTGREEN_EX + message_log + Fore.RESET)
+        write_logs(message_log)
+
     dir_name = 'documents'
     target_dir = os.path.join(current_dir, dir_name)
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
-        print(f'Папката {dir_name} беше успешно създадена.')
+        message_log = Fore.RESET + f'{datetime.now()}: Папката ' + Fore.LIGHTGREEN_EX + f'{dir_name}' + Fore.RESET + ' беше успешно създадена.'
+        print(Fore.LIGHTGREEN_EX + message_log + Fore.RESET)
+        write_logs(message_log)
 
     excel_file_path = "truck_data.xlsx"
     if not os.path.exists(excel_file_path):
         check_create_file(excel_file_path)
-        print(f'Файлът {excel_file_path} беше успешно създаден.')
+        message_log = Fore.RESET + f'{datetime.now()}: Файлът ' + Fore.LIGHTGREEN_EX + f'{excel_file_path}' + Fore.RESET + ' беше успешно създаден.'
+        print(message_log)
+        write_logs(message_log)
 
     select_page()

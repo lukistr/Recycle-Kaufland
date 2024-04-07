@@ -1,0 +1,15 @@
+credentials:
+  usernames:
+    edv:
+      email: k-bg-zl-is@kaufland.bg
+      failed_login_attempts: 0 # Will be managed automatically
+      logged_in: False # Will be managed automatically
+      name: John Smith
+      password: Parola01 # Will be hashed automatically
+cookie:
+  expiry_days: 1
+  key: 'admin_cookies' # Must be string
+  name: admin_cookie
+preauthorized:
+  emails:
+  - k-bg-zl-is@kaufland.bg
